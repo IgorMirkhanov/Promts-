@@ -1,0 +1,32 @@
+{
+  "name": "promts-",
+  "version": "1.0.0",
+  "description": "Генератор каруселей: ТЗ контент-плана → готовые PNG-слайды под постинг",
+  "scripts": {
+    "carousel": "tsx src/pipeline.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IgorMirkhanov/promts-.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/IgorMirkhanov/promts-/issues"
+  },
+  "homepage": "https://github.com/IgorMirkhanov/promts-#readme",
+  "dependencies": {
+    "@fontsource/montserrat": "^5.3.0",
+    "dotenv": "^18.0.4",
+    "openai": "^7.23.0",
+    "playwright-core": "1.56",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "type": "module"
+}

@@ -1,0 +1,12 @@
+{
+  "style_anchor": "minimalist 3D still life, soft warm rim light, deep navy #0F172A background, orange #F97316 and indigo #6366F1 accents, matte materials, subtle film grain, shallow depth of field",
+  "slides": [
+    { "n": 1, "image_prompt": "An empty glass piggy bank on a dark table, dramatic warm spotlight from the side, long soft shadow, high contrast, vertical 4:5 composition, large calm empty dark area in the upper half", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "center" },
+    { "n": 2, "image_prompt": "A single bank card floating at an angle with small coins scattering away from it, motion blur on coins, vertical 4:5 composition, object placed in the lower third, empty smooth dark space above", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "top" },
+    { "n": 3, "image_prompt": "A minimal paper wall calendar with one day circled in orange, a thin arrow leading to a small matte safe, calm lighting, vertical 4:5 composition, objects in the bottom part, clean empty upper area", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "top" },
+    { "n": 4, "image_prompt": "A sealed paper envelope with a blank tag, soft blurred silhouette of a sea horizon in the background, calm mood, vertical 4:5 composition, subject low in frame, quiet empty upper area", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "top" },
+    { "n": 5, "image_prompt": "Two blank matte bank cards placed far apart on opposite sides of a dark surface, one orange, one indigo, symmetrical calm composition, vertical 4:5, cards in the lower third, empty space above", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "top" },
+    { "n": 6, "image_prompt": "A staircase made of stacked coins rising diagonally out of frame, warm glow at the top, vertical 4:5 composition, smooth empty gradient area in the center", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "center" },
+    { "n": 7, "image_prompt": "A single sheet of paper with blank checkbox ticks lying on a vivid orange #F97316 surface, soft top light, vertical 4:5 composition, paper at the bottom edge, large clean orange area in the center", "negative_prompt": "text, letters, words, numbers, watermark, logo, captions, signature", "text_zone": "center" }
+  ]
+}
