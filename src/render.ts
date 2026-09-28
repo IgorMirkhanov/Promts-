@@ -101,14 +101,32 @@ ${isHook ? '<span class="swipe"><b>листай →</b></span>' : `<span>${slide
 </body></html>`;
 }
 
+/**
+ * Ищем браузер: CHROMIUM_PATH → Chromium от Playwright → установленный Chrome → Edge (есть в любой Windows).
+ */
+async function launchBrowser(): Promise<Browser> {
+  const explicit = process.env.CHROMIUM_PATH || ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(existsSync);
+  if (explicit) return chromium.launch({ executablePath: explicit });
+  const errors: string[] = [];
+  for (const opts of [{}, { channel: 'chrome' }, { channel: 'msedge' }]) {
+    try {
+      return await chromium.launch(opts);
+    } catch (err) {
+      errors.push(String(err).split('\n')[0] ?? '');
+    }
+  }
+  throw new Error(
+    `Не найден браузер для вёрстки. Установи Chrome/Edge, или выполни \`npx playwright-core install chromium\`, или укажи CHROMIUM_PATH.\n${errors.join('\n')}`,
+  );
+}
+
 export async function renderSlides(
   brief: Brief,
   copy: Copy,
   views: Omit<SlideView, 'total' | 'slide'>[],
   outFile: (n: number) => string,
 ): Promise<void> {
-  const executablePath = process.env.CHROMIUM_PATH ?? ['/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find(existsSync);
-  const browser: Browser = await chromium.launch({ executablePath });
+  const browser = await launchBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: W, height: H } });
     for (const [i, slide] of copy.slides.entries()) {

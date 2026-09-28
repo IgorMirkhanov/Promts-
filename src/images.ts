@@ -8,12 +8,12 @@ import OpenAI from 'openai';
 const apiKey = process.env.IMAGE_API_KEY;
 export const imagesAvailable = Boolean(apiKey);
 
-const client = apiKey ? new OpenAI({ apiKey, baseURL: process.env.IMAGE_BASE_URL }) : null;
+const client = apiKey ? new OpenAI({ apiKey, baseURL: process.env.IMAGE_BASE_URL || undefined }) : null;
 
 export async function generateBackground(prompt: string, negative: string): Promise<Buffer | null> {
   if (!client) return null;
   const res = await client.images.generate({
-    model: process.env.IMAGE_MODEL ?? 'gpt-image-1',
+    model: process.env.IMAGE_MODEL || 'gpt-image-1',
     // У gpt-image-1 нет negative_prompt — дописываем запрет прямо в промпт.
     prompt: `${prompt}\n\nAvoid: ${negative}.`,
     size: '1024x1536',

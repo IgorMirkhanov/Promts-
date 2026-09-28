@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Генератор каруселей: ТЗ контент-плана → готовые PNG-слайды под постинг",
   "scripts": {
-    "carousel": "tsx src/pipeline.ts",
+    "carousel": "tsx src/cli.ts",
+    "web": "tsx src/server.ts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {

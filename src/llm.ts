@@ -11,9 +11,9 @@ const apiKey = process.env.LLM_API_KEY;
 export const llmAvailable = Boolean(apiKey);
 
 const client = apiKey
-  ? new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL ?? 'https://api.deepseek.com' })
+  ? new OpenAI({ apiKey, baseURL: process.env.LLM_BASE_URL || 'https://api.deepseek.com' })
   : null;
-const model = process.env.LLM_MODEL ?? 'deepseek-chat';
+const model = process.env.LLM_MODEL || 'deepseek-chat';
 
 export function loadPrompt(name: string): string {
   return readFileSync(join(import.meta.dirname, '..', 'prompts', `${name}.md`), 'utf8');
