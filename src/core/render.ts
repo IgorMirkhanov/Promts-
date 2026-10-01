@@ -34,7 +34,7 @@ interface SlideView {
   valueIndex?: number;
 }
 
-function renderHeadlineSpans(text: string, accent: string, isCta: boolean): any[] {
+function renderHeadlineSpans(text: string, accentColor: string, isCta: boolean): any[] {
   const parts = text.split(/(\*[^*]+\*)/);
   return parts.map((part, i) => {
     if (part.startsWith('*')) {
@@ -42,7 +42,7 @@ function renderHeadlineSpans(text: string, accent: string, isCta: boolean): any[
         type: 'span',
         key: i,
         props: {
-          style: { color: isCta ? '#0f172a' : accent, fontWeight: 800 },
+          style: { color: isCta ? '#0f172a' : accentColor, fontWeight: 800 },
           children: part.slice(1, -1),
         },
       };
@@ -55,7 +55,7 @@ function renderHeadlineSpans(text: string, accent: string, isCta: boolean): any[
   });
 }
 
-function renderBodySpans(text: string, keyword: string | undefined, accent: string): any[] {
+function renderBodySpans(text: string, keyword: string | undefined, accentColor: string): any[] {
   if (!keyword) {
     return [{ type: 'span', props: { children: text } }];
   }
@@ -70,7 +70,7 @@ function renderBodySpans(text: string, keyword: string | undefined, accent: stri
           style: {
             display: 'block',
             background: '#fff',
-            color: accent,
+            color: accentColor,
             fontWeight: 900,
             padding: '4px 22px',
             borderRadius: 18,
@@ -84,6 +84,18 @@ function renderBodySpans(text: string, keyword: string | undefined, accent: stri
   });
 }
 
+function getIntentColors(intent: Intent, defaultAccent: string): { bgGradient: string; accentColor: string } {
+  const colorMap: Record<Intent, { bgGradient: string; accentColor: string }> = {
+    hook: { bgGradient: '#FF6B35', accentColor: '#FFB347' },      // оранжевый (привлечение внимания)
+    problem: { bgGradient: '#E63946', accentColor: '#FF6B6B' },   // красный (проблема)
+    story: { bgGradient: '#9D4EDD', accentColor: '#C77DFF' },     // фиолетовый (история)
+    bridge: { bgGradient: '#457B9D', accentColor: '#A8DADC' },    // синий (переход)
+    value: { bgGradient: '#2A9D8F', accentColor: '#52B788' },     // зеленый (решение)
+    cta: { bgGradient: '#F4A261', accentColor: '#E76F51' },       // теплый оранжевый (призыв)
+  };
+  return colorMap[intent];
+}
+
 async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
   const [bg = '#0f172a', accent = '#f97316'] = brief.brand.colors;
   const { slide, total } = v;
@@ -93,6 +105,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
   const justify = { top: 'flex-start', center: 'center', bottom: 'flex-end' }[zone];
   const bgFile = readFileSync(join(process.cwd(), 'assets', 'background.png')).toString('base64');
   const keyword = isCta && brief.cta_mechanic === 'comment_keyword' ? brief.cta_keyword : undefined;
+  const { bgGradient, accentColor } = getIntentColors(slide.intent, accent);
 
   const vnode: any = {
     type: 'div',
@@ -124,7 +137,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
               bottom: 0,
               background: isCta
                 ? 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0) 70%)'
-                : `linear-gradient(to bottom, ${bg}e6 0%, ${bg}00 70%)`,
+                : `linear-gradient(135deg, ${bgGradient}cc 0%, ${bg}dd 100%)`,
             },
           },
         },
@@ -172,7 +185,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     fontSize: 220,
                     fontWeight: 900,
                     lineHeight: 0.8,
-                    color: accent,
+                    color: accentColor,
                     opacity: 0.9,
                     letterSpacing: -8,
                     margin: 0,
@@ -195,7 +208,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     flexWrap: 'wrap',
                     margin: 0,
                   },
-                  children: renderHeadlineSpans(slide.headline, accent, isCta),
+                  children: renderHeadlineSpans(slide.headline, accentColor, isCta),
                 },
               },
               ...(slide.body ? [{
@@ -212,7 +225,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     display: 'flex',
                     flexWrap: 'wrap',
                   },
-                  children: renderBodySpans(slide.body, keyword, accent),
+                  children: renderBodySpans(slide.body, keyword, accentColor),
                 },
               }] : []),
             ],
@@ -247,7 +260,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     props: {
                       style: {
                         display: 'block',
-                        background: accent,
+                        background: accentColor,
                         color: '#fff',
                         borderRadius: 40,
                         padding: '10px 28px',
