@@ -42,7 +42,7 @@ function renderHeadlineSpans(text: string, accent: string, isCta: boolean): any[
         type: 'span',
         key: i,
         props: {
-          style: { color: isCta ? '#0f172a' : accent },
+          style: { color: isCta ? '#0f172a' : accent, fontWeight: 800 },
           children: part.slice(1, -1),
         },
       };
@@ -57,10 +57,7 @@ function renderHeadlineSpans(text: string, accent: string, isCta: boolean): any[
 
 function renderBodySpans(text: string, keyword: string | undefined, accent: string): any[] {
   if (!keyword) {
-    return [{
-      type: 'span',
-      props: { children: text },
-    }];
+    return [{ type: 'span', props: { children: text } }];
   }
 
   const parts = text.split(new RegExp(`(${keyword})`, 'i'));
@@ -71,7 +68,7 @@ function renderBodySpans(text: string, keyword: string | undefined, accent: stri
         key: i,
         props: {
           style: {
-            display: 'inline-block',
+            display: 'block',
             background: '#fff',
             color: accent,
             fontWeight: 900,
@@ -83,11 +80,7 @@ function renderBodySpans(text: string, keyword: string | undefined, accent: stri
         },
       };
     }
-    return {
-      type: 'span',
-      key: i,
-      props: { children: part || '' },
-    };
+    return { type: 'span', key: i, props: { children: part || '' } };
   });
 }
 
@@ -98,7 +91,6 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
   const isHook = slide.intent === 'hook';
   const zone = getZone(slide.intent);
   const justify = { top: 'flex-start', center: 'center', bottom: 'flex-end' }[zone];
-  const scrimDir = { top: 'to bottom', center: 'to bottom', bottom: 'to top' }[zone];
   const bgFile = readFileSync(join(process.cwd(), 'assets', 'background.png')).toString('base64');
   const keyword = isCta && brief.cta_mechanic === 'comment_keyword' ? brief.cta_keyword : undefined;
 
@@ -108,7 +100,6 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
       style: {
         width: W,
         height: H,
-        position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: justify,
@@ -118,20 +109,26 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         overflow: 'hidden',
+        position: 'relative',
       },
       children: [
+        // Scrim gradient
         {
           type: 'div',
           props: {
             style: {
               position: 'absolute',
-              inset: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               background: isCta
                 ? 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0) 70%)'
-                : `linear-gradient(${scrimDir}, ${bg}e6 0%, ${bg}00 70%)`,
+                : `linear-gradient(to bottom, ${bg}e6 0%, ${bg}00 70%)`,
             },
           },
         },
+        // Progress bar
         {
           type: 'div',
           props: {
@@ -143,20 +140,21 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
               display: 'flex',
               gap: 10,
             },
-            children: Array.from({ length: total }).map((_, i) => ({
+            children: Array.from({ length: total }).map((_, idx) => ({
               type: 'div',
-              key: i,
+              key: idx,
               props: {
                 style: {
-                  flex: 1,
+                  width: `${100 / total}%`,
                   height: 6,
                   borderRadius: 3,
-                  background: i < slide.n ? '#fff' : 'rgba(255,255,255,0.25)',
+                  background: idx < slide.n ? '#fff' : 'rgba(255,255,255,0.25)',
                 },
               },
             })),
           },
         },
+        // Content container
         {
           type: 'div',
           props: {
@@ -164,7 +162,6 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
               display: 'flex',
               flexDirection: 'column',
               gap: 40,
-              zIndex: 1,
               position: 'relative',
             },
             children: [
@@ -196,7 +193,6 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     fontFamily: 'Montserrat',
                     display: 'flex',
                     flexWrap: 'wrap',
-                    columnGap: '0.25em',
                     margin: 0,
                   },
                   children: renderHeadlineSpans(slide.headline, accent, isCta),
@@ -206,7 +202,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                 type: 'p',
                 props: {
                   style: {
-                    fontSize: isCta ? 42 : 42,
+                    fontSize: 42,
                     fontWeight: isCta ? 600 : 400,
                     lineHeight: 1.35,
                     opacity: 0.92,
@@ -215,7 +211,6 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     margin: 0,
                     display: 'flex',
                     flexWrap: 'wrap',
-                    columnGap: '0.25em',
                   },
                   children: renderBodySpans(slide.body, keyword, accent),
                 },
@@ -223,6 +218,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
             ],
           },
         },
+        // Footer
         {
           type: 'div',
           props: {
@@ -241,23 +237,16 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
               fontFamily: 'Montserrat',
             },
             children: [
-              {
-                type: 'span',
-                props: { children: brief.brand.name ?? '' },
-              },
+              { type: 'span', props: { children: brief.brand.name ?? '' } },
               isHook ? {
                 type: 'div',
                 props: {
-                  style: {
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                  },
+                  style: { display: 'flex', alignItems: 'center', gap: 14 },
                   children: [{
                     type: 'span',
                     props: {
                       style: {
-                        display: 'inline-block',
+                        display: 'block',
                         background: accent,
                         color: '#fff',
                         borderRadius: 40,

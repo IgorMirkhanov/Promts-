@@ -1,0 +1,32 @@
+{
+  "topic": "Тест рендеринга",
+  "audience": "Разработчики",
+  "goal": "Проверка вывода PNG",
+  "cta_mechanic": "link_in_bio",
+  "tone": "дружеский, разговорный",
+  "brand": {
+    "name": "Test Brand",
+    "colors": [
+      "#0F172A",
+      "#F97316"
+    ],
+    "style": "минимализм"
+  },
+  "slides": [
+    {
+      "n": 1,
+      "intent": "hook",
+      "idea": "hook"
+    },
+    {
+      "n": 2,
+      "intent": "problem",
+      "idea": "problem"
+    },
+    {
+      "n": 3,
+      "intent": "value",
+      "idea": "value"
+    }
+  ]
+}

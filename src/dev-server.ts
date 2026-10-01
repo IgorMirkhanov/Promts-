@@ -40,15 +40,16 @@ const server = createServer(async (req, res) => {
 
   // Proxy API calls
   if (pathname.startsWith('/api/')) {
-    const [_, api, func] = pathname.split('/');
-    if (!api || !func) {
+    const parts = pathname.slice(1).split('/').filter(Boolean);
+    if (parts.length < 2) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: 'Not found' }));
     }
 
+    const func = parts[1]!;
     const method = req.method || 'GET';
     try {
-      const handler = await loadApiFunction(api, method);
+      const handler = await loadApiFunction(func, method);
       if (!handler) {
         res.writeHead(405, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: 'Method not allowed' }));
