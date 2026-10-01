@@ -1,28 +1,29 @@
+import { z } from 'zod';
+import { BriefSchema, CopySchema } from '../src/core/schema.js';
 import { renderSlide } from '../src/core/render.js';
-import { BriefSchema, CopySchema, type Brief, type Copy } from '../src/core/schema.js';
-import { requireAuth } from '../src/core/auth.js';
-
-export async function POST(request: Request): Promise<Response> {
-  if (!requireAuth(request)) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  const body = await request.json() as { brief: Brief; copy: Copy; n: number };
-  try {
-    BriefSchema.parse(body.brief);
-    CopySchema.parse(body.copy);
-
-    const png = await renderSlide(body.brief, body.copy, body.n);
-
-    return new Response(Buffer.from(png) as any, {
-      headers: { 'Content-Type': 'image/png' },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-}
+import { fail, guard, readBody } from '../src/core/http.js';
 
 export const config = { maxDuration: 60 };
+
+const Body = z.object({
+  brief: BriefSchema,
+  copy: CopySchema,
+  n: z.number().int().positive(),
+});
+
+export async function POST(request: Request): Promise<Response> {
+  const blocked = guard(request);
+  if (blocked) return blocked;
+  try {
+    const { brief, copy, n } = Body.parse(await readBody(request));
+    const png = await renderSlide(brief, copy, n);
+    return new Response(Uint8Array.from(png), {
+      headers: {
+        'content-type': 'image/png',
+        'cache-control': 'no-store',
+      },
+    });
+  } catch (err) {
+    return fail(err);
+  }
+}

@@ -1,280 +1,453 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Генератор каруселей</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; background: #f5f5f5; }
-    .container { display: flex; height: 100vh; }
-    .sidebar { width: 280px; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; overflow-y: auto; }
-    .sidebar-header { padding: 20px; border-bottom: 1px solid #e0e0e0; }
-    .sidebar-header h2 { font-size: 16px; }
-    .sidebar-list { flex: 1; overflow-y: auto; }
-    .project-item { padding: 12px 20px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
-    .project-item:hover { background: #f9f9f9; }
-    .project-item.active { background: #e3f2fd; }
-    .main { flex: 1; display: flex; flex-direction: column; }
-    .main-header { background: #fff; padding: 20px; border-bottom: 1px solid #e0e0e0; }
-    .main-content { flex: 1; overflow-y: auto; padding: 20px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
-    .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
-    .form-group textarea { min-height: 120px; resize: vertical; }
-    .button { display: inline-block; padding: 10px 20px; background: #2196f3; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-    .button:hover { background: #1976d2; }
-    .button-secondary { background: #666; }
-    .button-secondary:hover { background: #555; }
-    .status { margin-top: 20px; padding: 12px; background: #f0f0f0; border-radius: 4px; }
-    .slides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
-    .slide-card { background: #fff; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
-    .slide-card img { width: 100%; height: auto; display: block; }
-    .slide-card-info { padding: 12px; font-size: 12px; color: #666; }
-    .password-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .password-modal.hidden { display: none; }
-    .password-form { background: #fff; padding: 30px; border-radius: 8px; min-width: 300px; }
-    .password-form h2 { margin-bottom: 20px; }
-    .password-form input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Генератор каруселей</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#111827;--muted:#6b7280;--line:#e5e7eb;--accent:#f97316;--ok:#16a34a;--bad:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:18px;margin:0}
+.pill{font-size:12px;padding:3px 10px;border-radius:99px;background:#eef2ff}
+.pill.ok{background:#dcfce7;color:#166534}.pill.no{background:#fee2e2;color:#991b1b}
+.layout{display:grid;grid-template-columns:260px 1fr;min-height:calc(100vh - 57px)}
+aside{border-right:1px solid var(--line);background:var(--card);padding:16px;overflow:auto}
+aside button.new{width:100%;margin-bottom:12px}
+.proj{padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.proj:hover{background:var(--bg)}.proj.active{background:#fff7ed;color:#9a3412}
+.proj small{display:block;color:var(--muted)}
+main{padding:24px;max-width:1300px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px;margin-bottom:20px}
+.card h2{font-size:16px;margin:0 0 12px}
+label{display:block;font-weight:600;margin:10px 0 6px}
+input[type=text],input[type=password],textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;color:inherit}
+textarea{min-height:220px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+button{font:inherit;font-weight:600;padding:10px 18px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.muted{color:var(--muted);font-size:13px}
+pre.log{background:#0f172a;color:#e2e8f0;padding:12px;border-radius:8px;font-size:12.5px;max-height:220px;overflow:auto;white-space:pre-wrap;margin:12px 0 0}
+.slides{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.slide{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+.slide img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;cursor:zoom-in}
+.slide a{display:block;text-align:center;padding:6px;font-size:13px;color:var(--text)}
+.edit{display:grid;grid-template-columns:40px 1fr 1.6fr;gap:8px;align-items:start;margin-bottom:8px}
+.edit b{padding-top:10px;color:var(--muted)}
+.edit textarea{min-height:64px;font-family:inherit;font-size:14px}
+.qa li{margin-bottom:4px}.qa.ok{color:var(--ok)}.qa.bad{color:var(--bad)}
+.caption{white-space:pre-wrap;background:var(--bg);padding:12px;border-radius:8px}
+dialog{border:0;padding:0;background:transparent}dialog img{max-height:92vh;display:block}
+dialog::backdrop{background:#000c}
+.hidden{display:none}
+#pw-box{align-items:center;gap:8px}
+#pw-box:not(.hidden){display:flex}
+#pw-box input{width:160px;padding:6px 10px}
+@media (max-width:800px){.layout{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
-  <div class="password-modal" id="passwordModal">
-    <div class="password-form">
-      <h2>Введите пароль</h2>
-      <input type="password" id="passwordInput" placeholder="Пароль" />
-      <button class="button" onclick="setPassword()">Войти</button>
+<header>
+  <h1>Генератор каруселей</h1>
+  <span id="st-llm" class="pill">LLM…</span>
+  <span id="st-auth" class="pill">Пароль…</span>
+  <span id="pw-box" class="hidden">
+    <input type="password" id="password" placeholder="Пароль приложения" autocomplete="current-password">
+    <button class="ghost" type="button" onclick="savePassword()">Сохранить</button>
+  </span>
+</header>
+<div class="layout">
+<aside>
+  <button class="new" onclick="newPost()">+ Новый пост</button>
+  <div id="projects"></div>
+</aside>
+<main>
+  <section class="card" id="form">
+    <h2>ТЗ на пост</h2>
+    <label>Название (для списка)</label>
+    <input type="text" id="name" placeholder="например: oshibki-nakopleniy">
+    <label>ТЗ — свободным текстом из контент-плана или JSON</label>
+    <textarea id="text" placeholder="Тема: 3 ошибки, из-за которых не получается копить
+Аудитория: 25–35, стабильный доход, накоплений нет
+Цель: переход в канал за чек-листом, кодовое слово ЧЕКЛИСТ
+
+Слайд 1 (обложка): откладываешь, а денег всё равно нет
+Слайд 2 (боль): дело не в зарплате, а в порядке действий
+Слайд 3 (польза): ошибка 1 — копить остаток
+...
+Слайд 7 (призыв): полный чек-лист по кодовому слову"></textarea>
+    <div class="row">
+      <button id="run" onclick="run()">Сгенерировать</button>
+      <button class="ghost hidden" id="retry" onclick="retry()">Повторить</button>
     </div>
-  </div>
+    <pre class="log hidden" id="log"></pre>
+  </section>
 
-  <div class="container">
-    <div class="sidebar">
-      <div class="sidebar-header">
-        <h2>Проекты</h2>
+  <section id="result" class="hidden">
+    <div class="card">
+      <div class="row" style="margin:0 0 14px;justify-content:space-between">
+        <h2 style="margin:0" id="r-title"></h2>
+        <button class="ghost" onclick="downloadAll()">Скачать все</button>
       </div>
-      <div class="sidebar-list" id="projectsList"></div>
-      <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
-        <button class="button" style="width: 100%; margin-bottom: 8px;" onclick="createProject()">+ Новый пост</button>
-      </div>
+      <div class="slides" id="slides"></div>
     </div>
-
-    <div class="main">
-      <div class="main-header">
-        <h1>Генератор каруселей</h1>
-      </div>
-      <div class="main-content" id="mainContent">
-        <div style="text-align: center; padding: 60px 20px; color: #999;">
-          Выберите проект или создайте новый
-        </div>
-      </div>
+    <div class="card">
+      <h2>Подпись к посту</h2>
+      <div class="caption" id="caption"></div>
+      <div class="row"><button class="ghost" onclick="copyCaption()">Скопировать подпись</button><span id="copied" class="muted"></span></div>
     </div>
-  </div>
+    <div class="card">
+      <h2>Проверка текста</h2>
+      <div id="qa"></div>
+    </div>
+    <div class="card">
+      <h2>Правка текста слайдов</h2>
+      <p class="muted">*звёздочками* выделяется слово акцентным цветом. После правки слайды перерисуются без запросов к нейросети.</p>
+      <div id="edits"></div>
+      <div class="row"><button id="rerender" onclick="saveEdits()">Сохранить и перерисовать</button></div>
+    </div>
+  </section>
+</main>
+</div>
+<dialog id="zoom" onclick="this.close()"><img id="zoom-img" alt=""></dialog>
 
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
-  <script>
-    const API_BASE = '/api';
-    let password = localStorage.getItem('carousel-password') || '';
-    let projects = JSON.parse(localStorage.getItem('carousel-projects') || '{}');
-    let currentProject = null;
+<script>
+const $ = (id) => document.getElementById(id);
+const STORE = 'carousel-projects';
+const BRIEFS = 'carousel-briefs';
+const AVOID = 'carousel-avoid';
+const PW = 'carousel-password';
+const ANGLES = ['contradiction', 'confession', 'scene', 'number', 'question', 'myth'];
+let current = null;
+let blobs = [];
+let failedStep = null;
+let lastVariation = null;
+let password = localStorage.getItem(PW) || '';
 
-    async function checkAuth() {
-      const res = await fetch(`${API_BASE}/status`);
-      const data = await res.json();
-      if (data.auth && !password) {
-        showPasswordModal();
-      }
+function slug(raw) {
+  const s = String(raw ?? '').trim().toLowerCase().replace(/[^a-zа-яё0-9_-]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+  if (!s) throw new Error('Укажи название поста');
+  return s;
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function pad(n) { return String(n).padStart(2, '0'); }
+function logLine(msg) {
+  const el = $('log');
+  el.classList.remove('hidden');
+  el.textContent = (el.textContent ? el.textContent + '\n' : '') + msg;
+  el.scrollTop = el.scrollHeight;
+}
+function formatCaption(copy) {
+  const tags = (copy.hashtags || []).map(h => '#' + String(h).replace(/^#/, '')).join(' ');
+  return copy.caption + '\n\n' + tags + '\n';
+}
+
+function headers(json) {
+  const h = {};
+  if (json) h['content-type'] = 'application/json';
+  if (password) h['x-app-password'] = password;
+  return h;
+}
+
+async function api(path, opts = {}, as = 'json') {
+  const res = await fetch(path, { ...opts, headers: { ...headers(Boolean(opts.body)), ...(opts.headers || {}) } });
+  if (res.status === 401) {
+    $('pw-box').classList.remove('hidden');
+    $('st-auth').textContent = 'Нужен пароль';
+    $('st-auth').className = 'pill no';
+    throw new Error('Нужен пароль приложения');
+  }
+  if (as === 'blob') {
+    if (!res.ok) {
+      let msg = res.statusText;
+      try { msg = (await res.json()).error || msg; } catch {}
+      throw new Error(msg);
     }
+    return res.blob();
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
 
-    function showPasswordModal() {
-      document.getElementById('passwordModal').classList.remove('hidden');
+function loadList() {
+  try { return JSON.parse(localStorage.getItem(STORE) || '[]'); } catch { return []; }
+}
+function saveList(list) { localStorage.setItem(STORE, JSON.stringify(list)); }
+function getCachedBrief(text) {
+  try { return JSON.parse(localStorage.getItem(BRIEFS) || '{}')[text.trim()] || null; } catch { return null; }
+}
+function setCachedBrief(text, brief) {
+  try {
+    const map = JSON.parse(localStorage.getItem(BRIEFS) || '{}');
+    map[text.trim()] = brief;
+    localStorage.setItem(BRIEFS, JSON.stringify(map));
+  } catch {}
+}
+function getAvoid(text) {
+  try { return JSON.parse(localStorage.getItem(AVOID) || '{}')[text.trim()] || { headlines: [], ideas: [] }; }
+  catch { return { headlines: [], ideas: [] }; }
+}
+function addAvoid(text, headlines, ideas) {
+  try {
+    const map = JSON.parse(localStorage.getItem(AVOID) || '{}');
+    const prev = map[text.trim()] || { headlines: [], ideas: [] };
+    map[text.trim()] = {
+      headlines: [...prev.headlines, ...headlines].filter(Boolean).slice(-24),
+      ideas: [...prev.ideas, ...ideas].filter(Boolean).slice(-16),
+    };
+    localStorage.setItem(AVOID, JSON.stringify(map));
+  } catch {}
+}
+function makeVariation(text) {
+  const avoid = getAvoid(text);
+  return {
+    seed: Math.floor(Math.random() * 1e9),
+    angle: ANGLES[Math.floor(Math.random() * ANGLES.length)],
+    avoid_headlines: avoid.headlines.slice(-20),
+    avoid_ideas: avoid.ideas.slice(-16),
+  };
+}
+function upsertProject(p) {
+  const list = loadList().filter(x => x.name !== p.name);
+  list.unshift({ name: p.name, topic: p.brief?.topic ?? p.name, brief: p.brief, copy: p.copy, qa: p.qa, text: p.text, updated: Date.now() });
+  saveList(list);
+}
+
+function savePassword() {
+  password = $('password').value;
+  localStorage.setItem(PW, password);
+  $('st-auth').textContent = 'Пароль сохранён';
+  $('st-auth').className = 'pill ok';
+}
+
+async function loadStatus() {
+  if (password) $('password').value = password;
+  try {
+    const s = await api('/api/status');
+    $('st-llm').textContent = s.llm ? 'LLM подключен' : 'LLM: нет ключа';
+    $('st-llm').className = 'pill ' + (s.llm ? 'ok' : 'no');
+    $('st-auth').textContent = s.auth ? (password ? 'Пароль задан' : 'Нужен пароль') : 'Без пароля';
+    $('st-auth').className = 'pill ' + (s.auth && !password ? 'no' : 'ok');
+    if (s.auth) $('pw-box').classList.remove('hidden');
+  } catch (e) {
+    $('st-llm').textContent = 'Нет связи';
+    $('st-llm').className = 'pill no';
+  }
+}
+
+function renderProjects() {
+  const list = loadList();
+  $('projects').innerHTML = list.map(p =>
+    `<div class="proj ${current?.name === p.name ? 'active' : ''}" onclick="openProject('${esc(p.name)}')">${esc(p.topic)}<small>${esc(p.name)}</small></div>`
+  ).join('') || '<p class="muted">Пока пусто</p>';
+}
+
+function newPost() {
+  current = null;
+  failedStep = null;
+  $('name').value = ''; $('text').value = '';
+  $('log').classList.add('hidden'); $('log').textContent = '';
+  $('result').classList.add('hidden');
+  $('retry').classList.add('hidden');
+  revokeBlobs();
+  renderProjects();
+}
+
+function revokeBlobs() {
+  blobs.forEach(u => URL.revokeObjectURL(u));
+  blobs = [];
+}
+
+function showQa(qa) {
+  $('qa').innerHTML = !qa ? '' : qa.pass
+    ? '<p class="qa ok">✓ Замечаний нет: лимиты соблюдены, ссылок и запрещённых слов нет.</p>'
+    : '<ul class="qa bad">' + qa.issues.map(i => `<li>${i.n ? 'Слайд ' + i.n : 'Подпись'}: ${esc(i.problem)} → ${esc(i.fix)}</li>`).join('') + '</ul>';
+}
+
+function showEdits(copy) {
+  $('edits').innerHTML = (copy?.slides || []).map(s =>
+    `<div class="edit"><b>${s.n}</b><textarea data-n="${s.n}" data-f="headline">${esc(s.headline)}</textarea><textarea data-n="${s.n}" data-f="body">${esc(s.body)}</textarea></div>`
+  ).join('') + (copy ? `<label>Подпись</label><textarea id="edit-caption">${esc(copy.caption)}</textarea>` : '');
+}
+
+function showSlides(urls) {
+  $('slides').innerHTML = urls.map((src, i) =>
+    `<div class="slide"><img src="${src}" onclick="zoom('${src}')" alt="слайд ${i + 1}"><a href="${src}" download="slide_${pad(i + 1)}.png">Скачать ${i + 1}</a></div>`
+  ).join('');
+}
+
+async function mapPool(items, limit, fn) {
+  const ret = new Array(items.length);
+  let i = 0;
+  async function worker() {
+    while (i < items.length) {
+      const idx = i++;
+      ret[idx] = await fn(items[idx], idx);
     }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return ret;
+}
 
-    function setPassword() {
-      const input = document.getElementById('passwordInput');
-      password = input.value;
-      localStorage.setItem('carousel-password', password);
-      document.getElementById('passwordModal').classList.add('hidden');
-      renderProjects();
-    }
+async function renderSlides(brief, copy) {
+  revokeBlobs();
+  const nums = copy.slides.map(s => s.n);
+  const urls = await mapPool(nums, 3, async (n, idx) => {
+    logLine(`[3] Вёрстка слайда ${idx + 1}/${nums.length}…`);
+    const blob = await api('/api/render', { method: 'POST', body: JSON.stringify({ brief, copy, n }) }, 'blob');
+    const url = URL.createObjectURL(blob);
+    blobs.push(url);
+    return url;
+  });
+  showSlides(urls);
+  return urls;
+}
 
-    function getHeaders() {
-      const headers: any = { 'Content-Type': 'application/json' };
-      if (password) headers['x-app-password'] = password;
-      return headers;
-    }
+function showResult(p) {
+  current = p;
+  $('result').classList.remove('hidden');
+  $('r-title').textContent = p.brief?.topic || p.name;
+  $('caption').textContent = p.caption || formatCaption(p.copy);
+  showQa(p.qa);
+  showEdits(p.copy);
+}
 
-    function renderProjects() {
-      const list = document.getElementById('projectsList');
-      list.innerHTML = Object.keys(projects).map(name => `
-        <div class="project-item ${currentProject === name ? 'active' : ''}" onclick="selectProject('${name}')">
-          ${name}
-        </div>
-      `).join('');
-      if (Object.keys(projects).length === 0) {
-        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Нет проектов</div>';
-      }
-    }
+async function openProject(name) {
+  const p = loadList().find(x => x.name === name);
+  if (!p) return;
+  current = p;
+  $('name').value = p.name;
+  $('text').value = p.text || (p.brief ? JSON.stringify(p.brief, null, 2) : '');
+  showResult(p);
+  renderProjects();
+  $('log').classList.remove('hidden');
+  $('log').textContent = 'Перерисовка слайдов…';
+  try {
+    await renderSlides(p.brief, p.copy);
+    logLine('Готово');
+  } catch (e) {
+    failedStep = 'render';
+    $('retry').classList.remove('hidden');
+    logLine('✗ ' + e.message);
+  }
+}
 
-    function createProject() {
-      const name = prompt('Имя проекта:');
-      if (!name) return;
-      projects[name] = { brief: null, copy: null, qa: null, slides: [], caption: '' };
-      localStorage.setItem('carousel-projects', JSON.stringify(projects));
-      selectProject(name);
-    }
+async function runFrom(step) {
+  const btn = $('run'); btn.disabled = true; btn.textContent = 'Генерация…';
+  $('retry').classList.add('hidden');
+  if (step === 'brief') { $('log').textContent = ''; $('log').classList.remove('hidden'); }
+  try {
+    const name = slug($('name').value || 'post');
+    $('name').value = name;
+    const text = $('text').value.trim();
+    if (text.length < 10) throw new Error('Вставь ТЗ');
 
-    function selectProject(name: string) {
-      currentProject = name;
-      renderProjects();
-      showProject();
-    }
+    const variation = lastVariation || makeVariation(text);
+    lastVariation = variation;
 
-    async function showProject() {
-      if (!currentProject) return;
-      const project = projects[currentProject];
-      let html = `<h2>${currentProject}</h2><div style="margin-top: 20px;">`;
-
-      if (!project.brief) {
-        html += `
-          <div class="form-group">
-            <label>Введите ТЗ (текст или JSON)</label>
-            <textarea id="briefInput" placeholder="Тема, аудитория, слайды..."></textarea>
-          </div>
-          <button class="button" onclick="generateBrief()">Разобрать ТЗ</button>
-        `;
-      } else if (!project.copy) {
-        html += `<p>Генерирую тексты...</p>`;
-        await generateCopy();
-      } else if (!project.qa) {
-        html += `<p>Проверяю качество...</p>`;
-        html += `<div class="status">${JSON.stringify(project.qa)}</div>`;
-        await generateSlides();
+    if (step === 'brief' || !current?.brief || current.text !== text) {
+      if (current?.text === text && current.brief && step !== 'brief') {
+        logLine('[1] ТЗ уже разобрано, без Gemini');
       } else {
-        html += `<div class="slides-grid" id="slidesGrid"></div>`;
-        if (project.slides.length > 0) {
-          const grid = html.match(/<div class="slides-grid"[^>]*>/);
-          if (grid) {
-            html = html.replace(grid[0], grid[0] + project.slides.map((s: any, i: number) => `
-              <div class="slide-card">
-                <img src="${s}" alt="Слайд ${i+1}" />
-                <div class="slide-card-info">Слайд ${i+1}/${project.slides.length}</div>
-              </div>
-            `).join(''));
-          }
-        }
-        html += `<div style="margin-top: 20px;">
-          <button class="button" onclick="downloadZip()">Скачать все (ZIP)</button>
-          <button class="button button-secondary" onclick="copyCaption()">Скопировать подпись</button>
-          <button class="button button-secondary" onclick="reset()">Начать заново</button>
-        </div>`;
+        logLine('[1] Разбор ТЗ…');
+        failedStep = 'brief';
+        const brief = await api('/api/brief', { method: 'POST', body: JSON.stringify({ text, variation }) });
+        setCachedBrief(text, brief);
+        current = { name, text, brief, copy: null, qa: null };
+        upsertProject(current);
+        logLine('[1] Готово: ' + brief.topic + ' · угол ' + variation.angle);
       }
-
-      html += '</div>';
-      document.getElementById('mainContent').innerHTML = html;
+      step = 'copy';
     }
-
-    async function generateBrief() {
-      const text = (document.getElementById('briefInput') as HTMLTextAreaElement).value;
-      if (!text) return;
-
-      const res = await fetch(`${API_BASE}/brief`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ text }),
-      });
-
-      if (res.status === 401) {
-        showPasswordModal();
-        return;
-      }
-
-      const brief = await res.json();
-      projects[currentProject].brief = brief;
-      localStorage.setItem('carousel-projects', JSON.stringify(projects));
-      showProject();
+    if (step === 'copy' || !current.copy) {
+      logLine('[2] Тексты и проверка…');
+      failedStep = 'copy';
+      const { copy, qa } = await api('/api/copy', { method: 'POST', body: JSON.stringify({ brief: current.brief, variation }) });
+      addAvoid(text, copy.slides.map(s => s.headline), current.brief.slides.map(s => s.idea));
+      lastVariation = null;
+      current.copy = copy; current.qa = qa;
+      current.caption = formatCaption(copy);
+      upsertProject(current);
+      showResult(current);
+      renderProjects();
+      logLine('[2] Готово');
+      step = 'render';
     }
-
-    async function generateCopy() {
-      const brief = projects[currentProject].brief;
-      const res = await fetch(`${API_BASE}/copy`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ brief }),
-      });
-
-      const copy = await res.json();
-      projects[currentProject].copy = copy;
-      localStorage.setItem('carousel-projects', JSON.stringify(projects));
-      showProject();
+    if (step === 'render') {
+      failedStep = 'render';
+      await renderSlides(current.brief, current.copy);
+      current.caption = formatCaption(current.copy);
+      upsertProject(current);
+      showResult(current);
+      logLine('[3] Слайды готовы');
+      failedStep = null;
     }
+  } catch (e) {
+    logLine('✗ ' + e.message);
+    $('retry').classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Сгенерировать';
+  }
+}
 
-    async function generateSlides() {
-      const brief = projects[currentProject].brief;
-      const copy = projects[currentProject].copy;
+function run() {
+  lastVariation = makeVariation($('text').value.trim());
+  current = null;
+  failedStep = 'brief';
+  return runFrom('brief');
+}
+function retry() { return runFrom(failedStep || 'brief'); }
 
-      // Check quality
-      const qRes = await fetch(`${API_BASE}/check`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ brief, copy }),
-      });
-      projects[currentProject].qa = await qRes.json();
+async function saveEdits() {
+  if (!current?.copy || !current.brief) return;
+  const copy = structuredClone(current.copy);
+  document.querySelectorAll('#edits textarea[data-n]').forEach(t => {
+    const s = copy.slides.find(x => x.n === Number(t.dataset.n));
+    if (s) s[t.dataset.f] = t.value.trim();
+  });
+  copy.caption = $('edit-caption').value.trim();
+  const btn = $('rerender'); btn.disabled = true;
+  $('log').textContent = ''; $('log').classList.remove('hidden');
+  try {
+    logLine('Проверка правил…');
+    const qa = await api('/api/check', { method: 'POST', body: JSON.stringify({ brief: current.brief, copy }) });
+    current.copy = copy; current.qa = qa; current.caption = formatCaption(copy);
+    showQa(qa);
+    logLine('Перерисовка без нейросети…');
+    await renderSlides(current.brief, copy);
+    upsertProject(current);
+    showResult(current);
+    logLine('Готово');
+  } catch (e) { logLine('✗ ' + e.message); }
+  finally { btn.disabled = false; }
+}
 
-      // Render slides
-      const slides = [];
-      for (let n = 1; n <= copy.slides.length; n++) {
-        const res = await fetch(`${API_BASE}/render`, {
-          method: 'POST',
-          headers: getHeaders(),
-          body: JSON.stringify({ brief, copy, n }),
-        });
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        slides.push(url);
-      }
+async function downloadAll() {
+  if (!blobs.length || !current) return;
+  const zip = new JSZip();
+  for (let i = 0; i < blobs.length; i++) {
+    const buf = await fetch(blobs[i]).then(r => r.arrayBuffer());
+    zip.file(`slide_${pad(i + 1)}.png`, buf);
+  }
+  zip.file('caption.txt', current.caption || formatCaption(current.copy));
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (current.name || 'carousel') + '.zip';
+  a.click();
+}
+async function copyCaption() {
+  await navigator.clipboard.writeText($('caption').textContent);
+  $('copied').textContent = 'Скопировано';
+  setTimeout(() => $('copied').textContent = '', 1500);
+}
+function zoom(src) { $('zoom-img').src = src; $('zoom').showModal(); }
 
-      projects[currentProject].slides = slides;
-      projects[currentProject].caption = copy.caption;
-      localStorage.setItem('carousel-projects', JSON.stringify(projects));
-      showProject();
-    }
-
-    async function downloadZip() {
-      const project = projects[currentProject];
-      const zip = new (window as any).JSZip();
-
-      for (let i = 0; i < project.slides.length; i++) {
-        const res = await fetch(project.slides[i]);
-        const blob = await res.blob();
-        zip.file(`slide_${String(i+1).padStart(2, '0')}.png`, blob);
-      }
-
-      zip.file('caption.txt', project.caption);
-      const content = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${currentProject}.zip`;
-      a.click();
-    }
-
-    function copyCaption() {
-      const text = projects[currentProject].caption;
-      navigator.clipboard.writeText(text);
-      alert('Подпись скопирована');
-    }
-
-    function reset() {
-      if (confirm('Начать заново?')) {
-        projects[currentProject] = { brief: null, copy: null, qa: null, slides: [], caption: '' };
-        localStorage.setItem('carousel-projects', JSON.stringify(projects));
-        showProject();
-      }
-    }
-
-    // Init
-    checkAuth();
-    renderProjects();
-  </script>
+loadStatus(); renderProjects();
+</script>
 </body>
 </html>

@@ -73,10 +73,13 @@ const server = createServer(async (req, res) => {
       });
 
       const response = await handler(request);
-      const responseBody = await response.text();
-
-      res.writeHead(response.status, Object.fromEntries(response.headers));
-      res.end(responseBody);
+      const buf = Buffer.from(await response.arrayBuffer());
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value: string, key: string) => {
+        headers[key] = value;
+      });
+      res.writeHead(response.status, headers);
+      res.end(buf);
     } catch (err) {
       console.error('API error:', err);
       res.writeHead(500, { 'Content-Type': 'application/json' });

@@ -1,13 +1,8 @@
 import { llmAvailable } from '../src/core/llm.js';
-
-export async function GET(): Promise<Response> {
-  return new Response(
-    JSON.stringify({
-      llm: llmAvailable,
-      auth: Boolean(process.env.APP_PASSWORD),
-    }),
-    { headers: { 'Content-Type': 'application/json' } }
-  );
-}
+import { passwordRequired } from '../src/core/auth.js';
 
 export const config = { maxDuration: 60 };
+
+export async function GET(): Promise<Response> {
+  return Response.json({ llm: llmAvailable, auth: passwordRequired() });
+}

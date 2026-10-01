@@ -1,8 +1,7 @@
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import type { Brief, Copy, Intent } from './schema.js';
+import { loadBackgroundDataUrl, loadFonts } from './assets.js';
 
 const W = 1080;
 const H = 1350;
@@ -12,75 +11,68 @@ function getZone(intent: Intent): 'top' | 'center' | 'bottom' {
   return 'top';
 }
 
-function loadFont(name: string): ArrayBuffer {
-  const path = join(process.cwd(), 'assets', 'fonts', name);
-  return readFileSync(path) as any as ArrayBuffer;
-}
-
-const fonts = [
-  { name: 'Montserrat', data: loadFont('montserrat-cyrillic-400-normal.woff'), weight: 400 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-latin-400-normal.woff'), weight: 400 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-cyrillic-600-normal.woff'), weight: 600 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-latin-600-normal.woff'), weight: 600 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-cyrillic-800-normal.woff'), weight: 800 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-latin-800-normal.woff'), weight: 800 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-cyrillic-900-normal.woff'), weight: 900 as const },
-  { name: 'Montserrat', data: loadFont('montserrat-latin-900-normal.woff'), weight: 900 as const },
-];
-
 interface SlideView {
   slide: Copy['slides'][number];
   total: number;
   valueIndex?: number;
 }
 
-function renderHeadlineSpans(text: string, accentColor: string, isCta: boolean): any[] {
-  const parts = text.split(/(\*[^*]+\*)/);
-  return parts.map((part, i) => {
-    if (part.startsWith('*')) {
-      return {
-        type: 'span',
-        key: i,
-        props: {
-          style: { color: isCta ? '#0f172a' : accentColor, fontWeight: 800 },
-          children: part.slice(1, -1),
-        },
-      };
+function tokenizeWords(text: string, accent: boolean, out: { text: string; accent: boolean }[]) {
+  for (const bit of text.split(/(\s+)/)) {
+    if (!bit || /^\s+$/.test(bit)) continue;
+    if (/^[^\p{L}\p{N}*]+$/u.test(bit) && out.length) {
+      out[out.length - 1]!.text += bit;
+      continue;
     }
-    return {
-      type: 'span',
-      key: i,
-      props: { children: part || '' },
-    };
+    out.push({ text: bit, accent });
+  }
+}
+
+function markedWords(text: string): { text: string; accent: boolean }[] {
+  const out: { text: string; accent: boolean }[] = [];
+  for (const part of text.split(/(\*[^*]+\*)/)) {
+    if (!part) continue;
+    const accent = part.startsWith('*') && part.endsWith('*') && part.length >= 2;
+    tokenizeWords(accent ? part.slice(1, -1) : part, accent, out);
+  }
+  return out;
+}
+
+function renderWordSpans(text: string, accentColor: string, isCta: boolean): any[] {
+  return markedWords(text).map((w, i) => {
+    const style: Record<string, string | number> = { color: w.accent ? (isCta ? '#0f172a' : accentColor) : '#fff' };
+    if (w.accent) style.fontWeight = 800;
+    return { type: 'span', key: i, props: { style, children: w.text } };
   });
 }
 
-function renderBodySpans(text: string, keyword: string | undefined, accentColor: string): any[] {
-  if (!keyword) {
-    return [{ type: 'span', props: { children: text } }];
-  }
+function renderHeadlineSpans(text: string, accentColor: string, isCta: boolean): any[] {
+  return renderWordSpans(text, accentColor, isCta);
+}
 
+function renderBodySpans(text: string, keyword: string | undefined, accentColor: string): any[] {
+  if (!keyword) return renderWordSpans(text, accentColor, false);
   const parts = text.split(new RegExp(`(${keyword})`, 'i'));
-  return parts.map((part, i) => {
+  return parts.flatMap((part, i) => {
     if (part.toLowerCase() === keyword.toLowerCase()) {
-      return {
+      return [{
         type: 'div',
-        key: i,
+        key: `kw-${i}`,
         props: {
           style: {
-            display: 'block',
+            display: 'flex',
             background: '#fff',
             color: accentColor,
             fontWeight: 900,
             padding: '4px 22px',
             borderRadius: 18,
-            margin: '6px 0',
+            margin: '6px 8px 6px 0',
           },
           children: part,
         },
-      };
+      }];
     }
-    return { type: 'span', key: i, props: { children: part || '' } };
+    return renderWordSpans(part, accentColor, false).map((node, j) => ({ ...node, key: `${i}-${j}` }));
   });
 }
 
@@ -103,7 +95,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
   const isHook = slide.intent === 'hook';
   const zone = getZone(slide.intent);
   const justify = { top: 'flex-start', center: 'center', bottom: 'flex-end' }[zone];
-  const bgFile = readFileSync(join(process.cwd(), 'assets', 'background.png')).toString('base64');
+  const bgFile = loadBackgroundDataUrl();
   const keyword = isCta && brief.cta_mechanic === 'comment_keyword' ? brief.cta_keyword : undefined;
   const { bgGradient, accentColor } = getIntentColors(slide.intent, accent);
 
@@ -118,7 +110,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
         justifyContent: justify,
         padding: '120px 96px 150px',
         gap: 40,
-        backgroundImage: `url(data:image/png;base64,${bgFile})`,
+        backgroundImage: `url(${bgFile})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         overflow: 'hidden',
@@ -206,6 +198,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     fontFamily: 'Montserrat',
                     display: 'flex',
                     flexWrap: 'wrap',
+                    gap: isHook ? 16 : 12,
                     margin: 0,
                   },
                   children: renderHeadlineSpans(slide.headline, accentColor, isCta),
@@ -224,6 +217,8 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
                     margin: 0,
                     display: 'flex',
                     flexWrap: 'wrap',
+                    gap: 10,
+                    alignItems: 'center',
                   },
                   children: renderBodySpans(slide.body, keyword, accentColor),
                 },
@@ -281,7 +276,7 @@ async function renderSlideToSvg(brief: Brief, v: SlideView): Promise<string> {
     },
   };
 
-  return await satori(vnode, { width: W, height: H, fonts });
+  return await satori(vnode, { width: W, height: H, fonts: loadFonts() });
 }
 
 export async function renderSlide(brief: Brief, copy: Copy, slideNum: number): Promise<Buffer> {

@@ -3,7 +3,8 @@ import { basename, extname, join } from 'node:path';
 import { callJson, llmAvailable } from './llm.js';
 import { renderSlides } from './render.js';
 import { ruleQa } from './steps/qa.js';
-import { BriefSchema, CopySchema, QaSchema, type Brief, type Copy, type Qa } from './schema.js';
+import { z } from 'zod';
+import { BriefSchema, CopySchema, type Brief, type Copy, type Qa } from './schema.js';
 
 export const ROOT = join(import.meta.dirname, '../..');
 export const OUTPUT_DIR = join(ROOT, 'output');
@@ -49,7 +50,7 @@ export async function runPipeline(name: string, briefText: string, opts: RunOpti
       log(stepName, `взят из ${file}`);
       return schema.parse(JSON.parse(readFileSync(path, 'utf8')));
     }
-    if (!llmAvailable) throw new Error(`[${stepName}] нет ${file} и не задан LLM_API_KEY — нечем сгенерировать`);
+    if (!llmAvailable) throw new Error(`[${stepName}] нет ${file} и не задан GEMINI_API_KEY — нечем сгенерировать`);
     log(stepName, 'генерация…');
     const result = await run();
     writeFileSync(path, JSON.stringify(result, null, 2));
@@ -64,22 +65,19 @@ export async function runPipeline(name: string, briefText: string, opts: RunOpti
     writeFileSync(join(outDir, '00_brief.json'), JSON.stringify(brief, null, 2));
   } else {
     brief = await step('00_brief.json', 'brief', BriefSchema, () =>
-      callJson('brief-parser', { DEFAULT_BRAND, brief_text: briefText }, BriefSchema),
+      callJson('brief-parser', { DEFAULT_BRAND, brief_text: briefText }, BriefSchema, { temperature: 0.95 }),
     );
   }
   log('brief', `${brief.topic} — ${brief.slides.length} слайдов`);
 
   // [1] Копирайтер
-  let copy: Copy = await step('01_copy.json', 'copywriter', CopySchema, () => callJson('copywriter', brief, CopySchema));
+  let copy: Copy = await step('01_copy.json', 'copywriter', CopySchema, () =>
+    callJson('copywriter', brief, CopySchema, { temperature: 1.1 }),
+  );
 
   // [2] QA: жёсткие правила, затем LLM-редактор. До 2 раундов правок.
   let qa: Qa = ruleQa(brief, copy);
   for (let round = 1; llmAvailable && llmQa && round <= 2; round++) {
-    if (qa.pass) {
-      log('qa', 'проверка редактором…');
-      const llm = await callJson('qa', { brief, carousel: copy }, QaSchema);
-      qa = { pass: llm.pass && llm.issues.length === 0, issues: llm.issues };
-    }
     if (qa.pass) break;
     log('qa', `раунд ${round}: ${qa.issues.length} замечаний → правка`);
     copy = await callJson('revise', { brief, carousel: copy, issues: qa.issues }, CopySchema);
@@ -110,4 +108,64 @@ function tryJson(text: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+export const VariationSchema = z.object({
+  seed: z.number().int().optional(),
+  angle: z.string().min(1).optional(),
+  avoid_headlines: z.array(z.string()).optional(),
+  avoid_ideas: z.array(z.string()).optional(),
+});
+export type Variation = z.infer<typeof VariationSchema>;
+
+const briefMemo = new Map<string, Brief>();
+
+export function formatCaption(copy: Copy): string {
+  const tags = copy.hashtags.map((h) => `#${h.replace(/^#/, '')}`).join(' ');
+  return `${copy.caption}\n\n${tags}\n`;
+}
+
+export async function parseBrief(text: string, variation?: Variation): Promise<Brief> {
+  const asJson = tryJson(text);
+  if (asJson) return BriefSchema.parse(asJson);
+  const key = `${text.trim()}::${JSON.stringify(variation ?? {})}`;
+  const cached = briefMemo.get(key);
+  if (cached) return cached;
+  if (!llmAvailable) throw new Error('Нет ключа Gemini и ТЗ не JSON — нечем разобрать');
+  const brief = await callJson(
+    'brief-parser',
+    { DEFAULT_BRAND, brief_text: text, VARIATION: variation ?? null },
+    BriefSchema,
+    { temperature: 0.95 },
+  );
+  briefMemo.set(key, brief);
+  return brief;
+}
+
+function isRateLimit(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /Слишком много запросов|перегружен|Лимит Gemini|Дневной лимит/i.test(msg);
+}
+
+export async function writeCopy(brief: Brief, variation?: Variation): Promise<{ copy: Copy; qa: Qa }> {
+  if (!llmAvailable) throw new Error('Нет ключа Gemini — нечем написать тексты');
+  let copy = await callJson(
+    'copywriter',
+    variation ? { ...brief, VARIATION: variation } : brief,
+    CopySchema,
+    { temperature: 1.1 },
+  );
+  let qa = ruleQa(brief, copy);
+  if (qa.pass) return { copy, qa };
+  try {
+    for (let round = 1; round <= 2; round++) {
+      copy = await callJson('revise', { brief, carousel: copy, issues: qa.issues }, CopySchema);
+      qa = ruleQa(brief, copy);
+      if (qa.pass) break;
+    }
+  } catch (err) {
+    if (isRateLimit(err)) return { copy, qa };
+    throw err;
+  }
+  return { copy, qa };
 }

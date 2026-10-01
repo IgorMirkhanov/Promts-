@@ -1,41 +1,22 @@
-import { callJson } from '../src/core/llm.js';
-import { BriefSchema, type Brief } from '../src/core/schema.js';
-import { DEFAULT_BRAND } from '../src/core/pipeline.js';
-import { requireAuth } from '../src/core/auth.js';
-
-function tryJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return undefined;
-  }
-}
-
-export async function POST(request: Request): Promise<Response> {
-  if (!requireAuth(request)) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  const body = await request.json() as { text: string };
-  try {
-    const asJson = tryJson(body.text);
-    let brief: Brief;
-
-    if (asJson) {
-      brief = BriefSchema.parse(asJson);
-    } else {
-      brief = await callJson('brief-parser', { DEFAULT_BRAND, brief_text: body.text }, BriefSchema);
-    }
-
-    return new Response(JSON.stringify(brief), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Unknown error' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-}
+import { z } from 'zod';
+import { parseBrief, VariationSchema } from '../src/core/pipeline.js';
+import { fail, guard, readBody } from '../src/core/http.js';
 
 export const config = { maxDuration: 60 };
+
+const Body = z.object({
+  text: z.string().min(10, 'Вставь ТЗ'),
+  variation: VariationSchema.optional(),
+});
+
+export async function POST(request: Request): Promise<Response> {
+  const blocked = guard(request);
+  if (blocked) return blocked;
+  try {
+    const { text, variation } = Body.parse(await readBody(request));
+    const brief = await parseBrief(text, variation);
+    return Response.json(brief);
+  } catch (err) {
+    return fail(err);
+  }
+}

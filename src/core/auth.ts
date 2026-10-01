@@ -27,3 +27,12 @@ export function requireAuth(request: Request): boolean {
   const password = request.headers.get('x-app-password');
   return password ? checkPassword(password) : false;
 }
+
+export function passwordRequired(): boolean {
+  return Boolean(process.env.APP_PASSWORD);
+}
+
+export function unauthorized(request: Request): Response | null {
+  if (requireAuth(request)) return null;
+  return Response.json({ error: 'Неверный пароль' }, { status: 401 });
+}
