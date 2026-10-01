@@ -37,27 +37,12 @@ export const CopySchema = z.object({
       intent: z.enum(INTENTS),
       headline: z.string(),
       body: z.string().default(''),
-      visual_idea: z.string(),
     }),
   ),
   caption: z.string(),
   hashtags: z.array(z.string()).default([]),
 });
 export type Copy = z.infer<typeof CopySchema>;
-
-/** Шаг 2 — арт-директор. */
-export const ArtSchema = z.object({
-  style_anchor: z.string(),
-  slides: z.array(
-    z.object({
-      n: z.number().int(),
-      image_prompt: z.string(),
-      negative_prompt: z.string(),
-      text_zone: z.enum(['top', 'center', 'bottom']),
-    }),
-  ),
-});
-export type Art = z.infer<typeof ArtSchema>;
 
 /** Шаг 5 — QA. */
 export const QaSchema = z.object({

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Генератор каруселей</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; background: #f5f5f5; }
+    .container { display: flex; height: 100vh; }
+    .sidebar { width: 280px; background: #fff; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-header { padding: 20px; border-bottom: 1px solid #e0e0e0; }
+    .sidebar-header h2 { font-size: 16px; }
+    .sidebar-list { flex: 1; overflow-y: auto; }
+    .project-item { padding: 12px 20px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
+    .project-item:hover { background: #f9f9f9; }
+    .project-item.active { background: #e3f2fd; }
+    .main { flex: 1; display: flex; flex-direction: column; }
+    .main-header { background: #fff; padding: 20px; border-bottom: 1px solid #e0e0e0; }
+    .main-content { flex: 1; overflow-y: auto; padding: 20px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
+    .form-group input, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; }
+    .form-group textarea { min-height: 120px; resize: vertical; }
+    .button { display: inline-block; padding: 10px 20px; background: #2196f3; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .button:hover { background: #1976d2; }
+    .button-secondary { background: #666; }
+    .button-secondary:hover { background: #555; }
+    .status { margin-top: 20px; padding: 12px; background: #f0f0f0; border-radius: 4px; }
+    .slides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+    .slide-card { background: #fff; border: 1px solid #ddd; border-radius: 4px; overflow: hidden; }
+    .slide-card img { width: 100%; height: auto; display: block; }
+    .slide-card-info { padding: 12px; font-size: 12px; color: #666; }
+    .password-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+    .password-modal.hidden { display: none; }
+    .password-form { background: #fff; padding: 30px; border-radius: 8px; min-width: 300px; }
+    .password-form h2 { margin-bottom: 20px; }
+    .password-form input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="password-modal" id="passwordModal">
+    <div class="password-form">
+      <h2>Введите пароль</h2>
+      <input type="password" id="passwordInput" placeholder="Пароль" />
+      <button class="button" onclick="setPassword()">Войти</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h2>Проекты</h2>
+      </div>
+      <div class="sidebar-list" id="projectsList"></div>
+      <div style="padding: 20px; border-top: 1px solid #e0e0e0;">
+        <button class="button" style="width: 100%; margin-bottom: 8px;" onclick="createProject()">+ Новый пост</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="main-header">
+        <h1>Генератор каруселей</h1>
+      </div>
+      <div class="main-content" id="mainContent">
+        <div style="text-align: center; padding: 60px 20px; color: #999;">
+          Выберите проект или создайте новый
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+  <script>
+    const API_BASE = '/api';
+    let password = localStorage.getItem('carousel-password') || '';
+    let projects = JSON.parse(localStorage.getItem('carousel-projects') || '{}');
+    let currentProject = null;
+
+    async function checkAuth() {
+      const res = await fetch(`${API_BASE}/status`);
+      const data = await res.json();
+      if (data.auth && !password) {
+        showPasswordModal();
+      }
+    }
+
+    function showPasswordModal() {
+      document.getElementById('passwordModal').classList.remove('hidden');
+    }
+
+    function setPassword() {
+      const input = document.getElementById('passwordInput');
+      password = input.value;
+      localStorage.setItem('carousel-password', password);
+      document.getElementById('passwordModal').classList.add('hidden');
+      renderProjects();
+    }
+
+    function getHeaders() {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (password) headers['x-app-password'] = password;
+      return headers;
+    }
+
+    function renderProjects() {
+      const list = document.getElementById('projectsList');
+      list.innerHTML = Object.keys(projects).map(name => `
+        <div class="project-item ${currentProject === name ? 'active' : ''}" onclick="selectProject('${name}')">
+          ${name}
+        </div>
+      `).join('');
+      if (Object.keys(projects).length === 0) {
+        list.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">Нет проектов</div>';
+      }
+    }
+
+    function createProject() {
+      const name = prompt('Имя проекта:');
+      if (!name) return;
+      projects[name] = { brief: null, copy: null, qa: null, slides: [], caption: '' };
+      localStorage.setItem('carousel-projects', JSON.stringify(projects));
+      selectProject(name);
+    }
+
+    function selectProject(name: string) {
+      currentProject = name;
+      renderProjects();
+      showProject();
+    }
+
+    async function showProject() {
+      if (!currentProject) return;
+      const project = projects[currentProject];
+      let html = `<h2>${currentProject}</h2><div style="margin-top: 20px;">`;
+
+      if (!project.brief) {
+        html += `
+          <div class="form-group">
+            <label>Введите ТЗ (текст или JSON)</label>
+            <textarea id="briefInput" placeholder="Тема, аудитория, слайды..."></textarea>
+          </div>
+          <button class="button" onclick="generateBrief()">Разобрать ТЗ</button>
+        `;
+      } else if (!project.copy) {
+        html += `<p>Генерирую тексты...</p>`;
+        await generateCopy();
+      } else if (!project.qa) {
+        html += `<p>Проверяю качество...</p>`;
+        html += `<div class="status">${JSON.stringify(project.qa)}</div>`;
+        await generateSlides();
+      } else {
+        html += `<div class="slides-grid" id="slidesGrid"></div>`;
+        if (project.slides.length > 0) {
+          const grid = html.match(/<div class="slides-grid"[^>]*>/);
+          if (grid) {
+            html = html.replace(grid[0], grid[0] + project.slides.map((s: any, i: number) => `
+              <div class="slide-card">
+                <img src="${s}" alt="Слайд ${i+1}" />
+                <div class="slide-card-info">Слайд ${i+1}/${project.slides.length}</div>
+              </div>
+            `).join(''));
+          }
+        }
+        html += `<div style="margin-top: 20px;">
+          <button class="button" onclick="downloadZip()">Скачать все (ZIP)</button>
+          <button class="button button-secondary" onclick="copyCaption()">Скопировать подпись</button>
+          <button class="button button-secondary" onclick="reset()">Начать заново</button>
+        </div>`;
+      }
+
+      html += '</div>';
+      document.getElementById('mainContent').innerHTML = html;
+    }
+
+    async function generateBrief() {
+      const text = (document.getElementById('briefInput') as HTMLTextAreaElement).value;
+      if (!text) return;
+
+      const res = await fetch(`${API_BASE}/brief`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ text }),
+      });
+
+      if (res.status === 401) {
+        showPasswordModal();
+        return;
+      }
+
+      const brief = await res.json();
+      projects[currentProject].brief = brief;
+      localStorage.setItem('carousel-projects', JSON.stringify(projects));
+      showProject();
+    }
+
+    async function generateCopy() {
+      const brief = projects[currentProject].brief;
+      const res = await fetch(`${API_BASE}/copy`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ brief }),
+      });
+
+      const copy = await res.json();
+      projects[currentProject].copy = copy;
+      localStorage.setItem('carousel-projects', JSON.stringify(projects));
+      showProject();
+    }
+
+    async function generateSlides() {
+      const brief = projects[currentProject].brief;
+      const copy = projects[currentProject].copy;
+
+      // Check quality
+      const qRes = await fetch(`${API_BASE}/check`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ brief, copy }),
+      });
+      projects[currentProject].qa = await qRes.json();
+
+      // Render slides
+      const slides = [];
+      for (let n = 1; n <= copy.slides.length; n++) {
+        const res = await fetch(`${API_BASE}/render`, {
+          method: 'POST',
+          headers: getHeaders(),
+          body: JSON.stringify({ brief, copy, n }),
+        });
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        slides.push(url);
+      }
+
+      projects[currentProject].slides = slides;
+      projects[currentProject].caption = copy.caption;
+      localStorage.setItem('carousel-projects', JSON.stringify(projects));
+      showProject();
+    }
+
+    async function downloadZip() {
+      const project = projects[currentProject];
+      const zip = new (window as any).JSZip();
+
+      for (let i = 0; i < project.slides.length; i++) {
+        const res = await fetch(project.slides[i]);
+        const blob = await res.blob();
+        zip.file(`slide_${String(i+1).padStart(2, '0')}.png`, blob);
+      }
+
+      zip.file('caption.txt', project.caption);
+      const content = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentProject}.zip`;
+      a.click();
+    }
+
+    function copyCaption() {
+      const text = projects[currentProject].caption;
+      navigator.clipboard.writeText(text);
+      alert('Подпись скопирована');
+    }
+
+    function reset() {
+      if (confirm('Начать заново?')) {
+        projects[currentProject] = { brief: null, copy: null, qa: null, slides: [], caption: '' };
+        localStorage.setItem('carousel-projects', JSON.stringify(projects));
+        showProject();
+      }
+    }
+
+    // Init
+    checkAuth();
+    renderProjects();
+  </script>
+</body>
+</html>
